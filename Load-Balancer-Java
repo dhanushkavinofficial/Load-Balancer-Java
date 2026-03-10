@@ -1,0 +1,132 @@
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+
+/**
+ * Simple Load Balancer using Round Robin Algorithm
+ * Thread-safe implementation.
+ */
+public class LoadBalancer {
+
+    /**
+     * Represents a backend server
+     */
+    static class Server {
+        private String ip;
+        private int port;
+        private boolean isHealthy;
+
+        public Server(String ip, int port) {
+            this.ip = ip;
+            this.port = port;
+            this.isHealthy = true;
+        }
+
+        public String getAddress() {
+            return ip + ":" + port;
+        }
+
+        public boolean isHealthy() {
+            return isHealthy;
+        }
+
+        public void setHealth(boolean status) {
+            this.isHealthy = status;
+        }
+    }
+
+    /**
+     * LoadBalancer Core
+     */
+    static class RoundRobinBalancer {
+
+        private List<Server> servers = new ArrayList<>();
+        private AtomicInteger index = new AtomicInteger(0);
+
+        public void registerServer(Server server) {
+            servers.add(server);
+        }
+
+        public Server getServer() {
+
+            if (servers.isEmpty()) {
+                throw new RuntimeException("No servers available");
+            }
+
+            int attempts = 0;
+
+            while (attempts < servers.size()) {
+
+                int current = Math.abs(index.getAndIncrement() % servers.size());
+                Server server = servers.get(current);
+
+                if (server.isHealthy()) {
+                    return server;
+                }
+
+                attempts++;
+            }
+
+            throw new RuntimeException("No healthy servers available");
+        }
+    }
+
+    /**
+     * Simulated Client Request
+     */
+    static class ClientRequest {
+        private String requestData;
+
+        public ClientRequest(String requestData) {
+            this.requestData = requestData;
+        }
+
+        public String getRequestData() {
+            return requestData;
+        }
+    }
+
+    /**
+     * Request Dispatcher
+     */
+    static class RequestDispatcher {
+
+        private RoundRobinBalancer loadBalancer;
+
+        public RequestDispatcher(RoundRobinBalancer loadBalancer) {
+            this.loadBalancer = loadBalancer;
+        }
+
+        public void dispatch(ClientRequest request) {
+
+            Server server = loadBalancer.getServer();
+
+            System.out.println(
+                    "Routing request: " +
+                            request.getRequestData() +
+                            " -> Server: " +
+                            server.getAddress()
+            );
+        }
+    }
+
+    /**
+     * Main Simulation
+     */
+    public static void main(String[] args) {
+
+        RoundRobinBalancer balancer = new RoundRobinBalancer();
+
+        balancer.registerServer(new Server("192.168.1.10", 8080));
+        balancer.registerServer(new Server("192.168.1.11", 8080));
+        balancer.registerServer(new Server("192.168.1.12", 8080));
+
+        RequestDispatcher dispatcher = new RequestDispatcher(balancer);
+
+        for (int i = 1; i <= 10; i++) {
+
+            ClientRequest request = new ClientRequest("Request-" + i);
+            dispatcher.dispatch(request);
+
+        }
+    }
+}
